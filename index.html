@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>爱之康理疗匹配</title>
+    <link rel="stylesheet" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" href="./css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="./css/bootstrap-datepicker.min.css">
+    <style>
+        select {
+            height: 34px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding-left: 9px;
+        }
+    </style>
+</head>
+<body>
+<div class="container" style="margin: 20px auto;border-radius: 10px;border: 1px solid #e2e2e2;">
+    <div class="col-sm-12">
+        <div class="page-header text-center">
+            <h1>爱之康健康管理中心理疗匹配</h1>
+        </div>
+        <div class="col-sm-12">
+            <form class="form-horizontal">
+                <div class="form-group">
+                    <label class="col-sm-4 control-label">服务类型</label>
+                    <div class="col-sm-6">
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="serviceType" value="1" id="serviceType1" checked> 微循环
+                            </label>
+                        </div>
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="serviceType" value="2" id="serviceType2"> 平衡修复
+                            </label>
+                        </div>
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="serviceType" value="3" id="serviceType3"> 红细胞修复
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="amount" class="col-sm-4 control-label">充值金额</label>
+                    <div class="col-sm-5">
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="amount" placeholder="请输入充值金额">
+                            <span class="input-group-btn">
+                            <button class="btn btn-danger" type="button">元</button>
+                          </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="time" class="col-sm-4 control-label">充值时间</label>
+                    <div class="col-sm-5">
+                        <div class="input-group date">
+                            <div class="input-group-addon">
+                                <i class="glyphicon glyphicon-calendar"></i>
+                            </div>
+                            <input type="text" class="form-control pull-right" id="time" readonly placeholder="请选择充值时间">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="period" class="col-sm-4 control-label">理疗时限</label>
+                    <div class="col-sm-6" id="period">
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="period" value="1" id="one-year" checked> 1年
+                            </label>
+                        </div>
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="period" value="2" disabled id="two-year"> 2年
+                            </label>
+                        </div>
+                        <div class="radio">
+                            <label>
+                                <input type="radio" name="period" value="3" disabled id="three-year"> 3年
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-4"></div>
+                    <div class="col-sm-8">
+                        <button type="button" style="width: 40%" id="submit" class="btn btn-success">开始匹配</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="col-sm-12">
+            <br>
+            <table id="table" class="table table-striped table-hover table-responsive">
+
+            </table>
+        </div>
+    </div>
+</div>
+<script src="./js/jquery-1.10.2.min.js"></script>
+<script src="./js/bootstrap.min.js"></script>
+<script src="./js/bootstrap-datepicker.min.js"></script>
+<script src="./js/bootstrap-datepicker.zh-CN.min.js"></script>
+<script type="text/javascript">
+    $(function () {
+        let rates = {
+            "1": {init: 8 / 1000, step: 0.001, seasonStep: 0.002},
+            "2": {init: 12 / 1000, step: 0.001, seasonStep: 0.002},
+            "3": {init: 17 / 1000, step: 0.002, seasonStep: 0.003}
+        }
+        let season = 3;
+        let headers = '<thead><tr><th style="width: 25%;text-align: center">服务时间</th><th style="width: 25%;text-align: center">服务类型</th><th style="width: 25%;text-align: center">价值（元）</th><th style="width: 25%;text-align: center">剩余服务价值（元）</th></tr></thead>';
+        let rowTemplate = '<tr><td style="text-align: center">{time}</td><td style="text-align: center">{type}</td><td style="text-align: right">{profit}</td><td style="text-align: right">{leftProfit}</td></tr>';
+        let countTemplate = '<tr><td colspan="2" style="text-align: center">{name}</td><td colspan="2" style="text-align: center">{totalProfit}</td></tr>';
+        let $table = $('#table');
+
+        $('#submit').click(function () {
+                $table.html('');
+                let $serviceType = $('input[name=serviceType]:checked');
+                let serviceType = $serviceType.val();
+                let serviceTypeName = $serviceType.parent().text();
+                let $time = $('#time');
+                let time = $time.val();
+                let amount = $('#amount').val();
+                let period = $('input[name=period]:checked').val();
+
+                let months = period * 12;
+
+                if (!amount) {
+                    alert('请输入充值金额！');
+                    return false;
+                }
+                if (amount < 1) {
+                    alert('请输入正确的充值金额！');
+                    return false;
+                }
+                if (!time) {
+                    alert('请选择充值时间！');
+                    return false;
+                }
+
+                //===== 计算总收益 =====
+                // 总收益
+                let totalProfit = 0.0;
+                // 每月收益率
+                let monthRate = 0.0;
+                // 收益率计算对象
+                let rate = rates[serviceType];
+                // 每月收益率数组
+                let monthRates = [];
+                for (let i = 0; i < months; i++) {
+                    if (i === 0) {
+                        monthRate += rate.init;
+                    } else if (i % season === 0) {
+                        monthRate += rate.seasonStep;
+                    } else {
+                        monthRate += rate.step;
+                    }
+                    monthRates.push(monthRate);
+                }
+                // 总收益率
+                let totalRate = monthRates.reduce((pre, v) => {
+                    return pre + v;
+                })
+                // 总收益
+                totalProfit = Math.floor(amount * totalRate);
+
+                //==== 显示收益 ====
+                // 显示了的收益
+                let shownProfit = 0;
+                let selDate = $time.datepicker('getDate');
+                let startDate = new Date(selDate.getTime());
+                let month = startDate.getMonth();
+                let year = startDate.getFullYear();
+                let date = startDate.getDate();
+
+                let ms = [1, 3, 5, 7, 8, 10, 12];
+
+                $table.append(headers);
+                for (let i = 0; i < months; i++) {
+                    let rowHtml = rowTemplate;
+
+                    // 时间
+                    month += 1;
+                    if (month > 11) {
+                        year += 1;
+                        month = 0;
+                    }
+
+                    let curDate = date;
+                    if (isLeapYear(year)) {
+                        if (month === 1) {
+                            if (curDate > 29) {
+                                curDate = 29;
+                            }
+                        } else {
+                            if (curDate > 30) {
+                                if (!ms.includes(month + 1)) {
+                                    curDate = 30;
+                                }
+                            }
+                        }
+                    } else {
+                        if (month === 1) {
+                            if (curDate > 28) {
+                                curDate = 28;
+                            }
+                        } else {
+                            if (curDate > 30) {
+                                if (!ms.includes(month + 1)) {
+                                    curDate = 30;
+                                }
+                            }
+                        }
+                    }
+
+                    let tm = formatDate(new Date(year, month, curDate), 'yyyy-MM-dd');
+                    rowHtml = rowHtml.replace("{time}", tm);
+
+                    // 服务类型
+                    rowHtml = rowHtml.replace("{type}", serviceTypeName);
+
+                    // 价值
+                    let monthProfit = Math.floor(amount * monthRates[i]);
+                    shownProfit += monthProfit;
+                    rowHtml = rowHtml.replace("{profit}", monthProfit.toFixed(0));
+
+                    // 剩余价值
+                    let leftProfit = totalProfit - shownProfit;
+                    leftProfit = leftProfit < 0 ? 0 : leftProfit;
+                    rowHtml = rowHtml.replace("{leftProfit}", leftProfit.toFixed(0));
+
+                    $table.append(rowHtml);
+                }
+                $table.append(countTemplate.replace("{name}", "总价值").replace("{totalProfit}", totalProfit.toFixed(0) + "元"));
+            }
+        );
+
+        $('#time').datepicker({
+            startDate: '+0d',
+            clearBtn: true,
+            todayBtn: true,
+            autoclose: true,
+            format: 'yyyy-mm-dd',
+            language: 'zh-CN',
+            todayHighlight: true
+        })
+
+        function isLeapYear(year) {
+            return ((year % 4) === 0) && ((year % 100) !== 0) || ((year % 400) === 0);
+        }
+
+        function formatDate(dateStr, format) {
+            if (!dateStr) {
+                return null;
+            }
+            let date = new Date(dateStr);
+
+            let o = {
+                "M+": date.getMonth() + 1, // month
+                "d+": date.getDate(), // day
+                "h+": date.getHours(), // hour
+                "m+": date.getMinutes(), // minute
+                "s+": date.getSeconds(), // second
+                "q+": Math.floor((date.getMonth() + 3) / 3), // quarter
+                "S": date.getMilliseconds()
+                // millisecond
+            };
+
+            if (/(y+)/.test(format))
+                format = format.replace(RegExp.$1, (date.getFullYear() + "")
+                    .substr(4 - RegExp.$1.length));
+            for (let k in o) {
+                if (new RegExp("(" + k + ")").test(format)) {
+                    format = format.replace(RegExp.$1, RegExp.$1.length == 1 ? o[k]
+                        : ("00" + o[k]).substr(("" + o[k]).length));
+                }
+            }
+            return format;
+        }
+    });
+</script>
+</body>
+</html>
